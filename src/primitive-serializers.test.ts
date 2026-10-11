@@ -1,5 +1,6 @@
 import { expect } from "buckwheat";
 import { describe, it } from "mocha";
+import assert from "node:assert/strict";
 import { SerializerTester } from "./serializer_tester.js";
 import * as skir from "./skir-client.js";
 
@@ -386,14 +387,13 @@ describe("string serializer", () => {
   );
   tester.deserializeZeroAndAssert((s) => s === "");
 
-  it("sanitizes lone surrogates when encoding to binary", () => {
+  it("rejects lone surrogates when encoding to binary", () => {
     // U+D800 is an unpaired surrogate. It is not a valid Unicode scalar value.
-    const bytes = serializer.toBytes("\uD800z").toBuffer();
-    expect(serializer.fromBytes(bytes)).toBe("\uFFFDz");
+    assert.throws(() => serializer.toBytes("\uD800z"));
   });
 
-  it("escapes lone surrogates in JSON serialization", () => {
-    expect(serializer.toJsonCode("\uD800z")).toBe('"\\ud800z"');
+  it("rejects lone surrogates in JSON serialization", () => {
+    assert.throws(() => serializer.toJsonCode("\uD800z"));
   });
 });
 

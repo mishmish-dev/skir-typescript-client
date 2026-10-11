@@ -1596,6 +1596,12 @@ class StringSerializer extends AbstractPrimitiveSerializer<"string"> {
 
   toJson(input: string): string {
     if (typeof input === "string") {
+      for (const char of input) {
+        const codePoint = char.codePointAt(0)!;
+        if (codePoint >= 0xd800 && codePoint <= 0xdfff) {
+          throw new Error("Unpaired Unicode surrogate");
+        }
+      }
       return input;
     }
     throw this.newTypeError(input);
@@ -1603,7 +1609,7 @@ class StringSerializer extends AbstractPrimitiveSerializer<"string"> {
 
   fromJson(json: Json): string {
     if (typeof json === "string") {
-      return json;
+      return this.toJson(json);
     }
     if (json === 0) {
       return "";
@@ -1612,6 +1618,7 @@ class StringSerializer extends AbstractPrimitiveSerializer<"string"> {
   }
 
   encode(input: string, stream: OutputStream): void {
+    this.toJson(input);
     if (!input) {
       stream.writeUint8(242);
       return;

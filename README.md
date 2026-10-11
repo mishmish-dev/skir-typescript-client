@@ -10,6 +10,10 @@ Install with:
 npm i skir-client
 ```
 
+String serializers reject unpaired Unicode surrogates on JSON reads and writes
+and binary writes. Previously, JSON preserved them and binary encoding replaced
+them with U+FFFD. Ordinary text and valid surrogate pairs are preserved.
+
 See:
 
 *   [skir](https://github.com/gepheum/skir): home of the skir compiler
