@@ -1611,11 +1611,8 @@ class StringSerializer extends AbstractPrimitiveSerializer<"string"> {
 
   toJson(input: string): string {
     if (typeof input === "string") {
-      for (const char of input) {
-        const codePoint = char.codePointAt(0)!;
-        if (codePoint >= 0xd800 && codePoint <= 0xdfff) {
-          throw new Error("Unpaired Unicode surrogate");
-        }
+      if (/[\uD800-\uDFFF]/u.test(input)) {
+        throw new Error("Unpaired Unicode surrogate");
       }
       return input;
     }
