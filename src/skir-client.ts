@@ -886,6 +886,13 @@ class InputStream {
   readUint8(): number {
     return this.dataView.getUint8(this.offset++);
   }
+
+  skip(length: number): void {
+    if (length > this.buffer.byteLength - this.offset) {
+      throw new Error("Truncated binary payload");
+    }
+    this.offset += length;
+  }
 }
 
 type DecodeNumberFn = (stream: InputStream) => number | bigint;
@@ -909,6 +916,14 @@ const DECODE_NUMBER_FNS: readonly DecodeNumberFn[] = [
 function decodeNumber(stream: InputStream): number | bigint {
   const wire = stream.readUint8();
   return wire < 232 ? wire : DECODE_NUMBER_FNS[wire - 232]!(stream);
+}
+
+function decodeUint32(stream: InputStream): number {
+  const wire = stream.dataView.getUint8(stream.offset);
+  if (wire > 233) {
+    throw new Error(`Invalid unsigned length or variant tag: ${wire}`);
+  }
+  return decodeNumber(stream) as number;
 }
 
 function decodeBigInt(stream: InputStream): bigint {
@@ -1657,14 +1672,19 @@ class StringSerializer extends AbstractPrimitiveSerializer<"string"> {
     if (wire === 0 || wire === 242) {
       return "";
     }
-    const encodedLength = decodeNumber(stream) as number;
+    if (wire !== 243) {
+      throw new Error(`Invalid string wire tag: ${wire}`);
+    }
+    const encodedLength = decodeUint32(stream);
+    const start = stream.offset;
+    stream.skip(encodedLength);
     return textDecoder.decode(
-      new Uint8Array(
-        stream.buffer,
-        (stream.offset += encodedLength) - encodedLength,
-        encodedLength,
-      ),
+      new Uint8Array(stream.buffer, start, encodedLength),
     );
+  }
+
+  override isDefault(input: string): boolean {
+    return this.toJson(input) === "";
   }
 
   private newTypeError(actual: unknown): TypeError {
@@ -1750,7 +1770,7 @@ type EnumVariantImpl<Enum = unknown> =
   | EnumWrapperVariantImpl<Enum, unknown>;
 
 const textEncoder = new TextEncoder();
-const textDecoder = new TextDecoder();
+const textDecoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
 class ArraySerializerImpl<Item>
   extends AbstractSerializer<readonly Item[]>
@@ -1932,7 +1952,14 @@ function decodeUnused(stream: InputStream): void {
     case 3: // uint8 - 256
       ++stream.offset;
       break;
-    case 11: // string
+    case 11: {
+      // string
+      const length = decodeUint32(stream);
+      const start = stream.offset;
+      stream.skip(length);
+      textDecoder.decode(new Uint8Array(stream.buffer, start, length));
+      break;
+    }
     case 13: {
       // bytes
       const length = decodeNumber(stream) as number;
