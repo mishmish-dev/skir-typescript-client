@@ -93,9 +93,7 @@ describe("int32 serializer", () => {
   });
   tester.reserializeAndAssert(-3.8, {
     denseJson: -3,
-    bytesAsBase16: "ebfc",
-    denseJsonFromReserialized: -4,
-    lossy: true,
+    bytesAsBase16: "ebfd",
   });
   tester.reserializeAndAssert(231, {
     denseJson: 231,
@@ -212,9 +210,9 @@ describe("int64 serializer", () => {
   it("accepts number", () => {
     expect(serializer.fromJson(123)).toBe(BigInt(123));
   });
-  it("accepts number outside of range", () => {
+  it("clamps numbers outside of range", () => {
     expect(serializer.fromJson("-99999999999999999999999999")).toBe(
-      BigInt("-99999999999999999999999999"),
+      BigInt("-9223372036854775808"),
     );
   });
 });
@@ -254,10 +252,8 @@ describe("hash64 serializer", () => {
   it("accepts number", () => {
     expect(serializer.fromJson(123)).toBe(BigInt(123));
   });
-  it("accepts number outside of range", () => {
-    expect(serializer.fromJson("-99999999999999999999999999")).toBe(
-      BigInt("-99999999999999999999999999"),
-    );
+  it("clamps numbers outside of range", () => {
+    expect(serializer.fromJson("-99999999999999999999999999")).toBe(BigInt(0));
   });
 });
 
@@ -265,11 +261,11 @@ describe("float32 serializer", () => {
   const serializer = skir.primitiveSerializer("float32");
   const tester = new SerializerTester(serializer);
 
-  it("can deserialize any number", () => {
-    expect(serializer.fromJson("1111111111")).toMatch(1111111111);
+  it("rounds to float32 precision", () => {
+    expect(serializer.fromJson("1111111111")).toMatch(1111111168);
     expect(
       serializer.fromJson("1111111111111111111111111111111111111111"),
-    ).toMatch(1.1111111111111112e39);
+    ).toMatch(Infinity);
   });
 
   tester.reserializeAndAssert(2, {
@@ -289,16 +285,12 @@ describe("float32 serializer", () => {
     bytesAsBase16: "f00000c0bf",
   });
   tester.reserializeAndAssert(2.8, {
-    denseJson: 2.8,
+    denseJson: 2.799999952316284,
     bytesAsBase16: "f033333340",
-    denseJsonFromReserialized: 2.799999952316284,
-    lossy: true,
   });
   tester.reserializeAndAssert(-3.8, {
-    denseJson: -3.8,
+    denseJson: -3.799999952316284,
     bytesAsBase16: "f0333373c0",
-    denseJsonFromReserialized: -3.799999952316284,
-    lossy: true,
   });
   tester.reserializeAndAssert(Number.NaN, {
     denseJson: "NaN",
